@@ -2,6 +2,7 @@ const express = require("express");
 const logger = require("morgan");
 const cors = require("cors");
 const connectDB = require("./config/db");
+const authRouter = require("./routes/api/auth");
 
 const app = express();
 
@@ -9,6 +10,8 @@ connectDB();
 
 app.use(express.json());
 app.use(cors());
+
+app.use("/users", authRouter);
 
 const contactsRouter = require("./routes/api/contacts");
 app.use("/api/contacts", contactsRouter);
