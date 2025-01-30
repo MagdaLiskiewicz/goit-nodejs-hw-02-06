@@ -16,18 +16,19 @@ const schema = Joi.object({
   favorite: Joi.boolean(),
 });
 
-// // const updateSchema = Joi.object({
-// //   name: Joi.string().min(3).max(30),
-// //   email: Joi.string().email(),
-// //   phone: Joi.string().pattern(/^[0-9\-()+ ]+$/),
-// // });
-
 const listContacts = async (req, res, next) => {
   try {
-    const allContacts = await Contact.find();
-    res.status(200).json(allContacts);
+    const contacts = await Contact.find({ owner: req.user._id });
+
+    if (contacts.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "Brak kontaktów dla tego użytkownika" });
+    }
+
+    res.status(200).json(contacts);
   } catch (error) {
-    next(error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
@@ -62,8 +63,9 @@ const addContact = async (req, res, next) => {
       return res.status(400).json({ message: "missing required fields" });
     }
     const { name, email, phone, favorite } = req.body;
+    const owner = req.user._id;
 
-    const existingContact = await Contact.findOne({ email, phone });
+    const existingContact = await Contact.findOne({ email, phone, owner });
     // console.log("Existing contact:", existingContact);
     if (existingContact) {
       return res
@@ -71,7 +73,13 @@ const addContact = async (req, res, next) => {
         .json({ message: "Contact with this email or phone already exists." });
     }
 
-    const newContact = await Contact.create({ name, email, phone, favorite });
+    const newContact = await Contact.create({
+      name,
+      email,
+      phone,
+      favorite,
+      owner,
+    });
     // console.log("New contact added:", newContact);
 
     res.status(201).json(newContact);
@@ -84,8 +92,7 @@ const addContact = async (req, res, next) => {
 const updateContact = async (req, res, next) => {
   try {
     const updatedContact = await Contact.findByIdAndUpdate(
-      req.params.contactId,
-      req.body,
+      { _id: req.params.contactId, owner: req.user._id },
       { new: true }
     );
     if (!updatedContact) {
@@ -104,7 +111,7 @@ const updateStatusContact = async (req, res, next) => {
       return res.status(400).json({ message: "missing field favorite" });
     }
     const updatedContact = await Contact.findByIdAndUpdate(
-      req.params.contactId,
+      { _id: req.params.contactId, owner: req.user._id },
       { favorite },
       { new: true }
     );
