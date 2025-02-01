@@ -2,6 +2,11 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/user");
 const jwt = require("jsonwebtoken");
 const Joi = require("joi");
+const gravatar = require("gravatar");
+const fs = require("fs/promises");
+const path = require("path");
+const Jimp = require("jimp");
+const avatarsDir = path.join(__dirname, "../public/avatars");
 
 const registerSchema = Joi.object({
   email: Joi.string().email().required(),
@@ -36,15 +41,19 @@ const register = async (req, res, next) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    const avatarURL = gravatar.url(email, { s: "250", d: "identicon" }, true);
+
     const newUser = await User.create({
       email,
       password: hashedPassword,
+      avatarURL,
     });
 
     res.status(201).json({
       user: {
         email: newUser.email,
         subscription: newUser.subscription,
+        avatarURL,
       },
     });
   } catch (error) {
@@ -129,9 +138,35 @@ const getCurrentUser = async (req, res) => {
   });
 };
 
+const updateAvatar = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const { path: tmpPath, filename } = req.file;
+
+    const newPath = path.join(avatarsDir, filename);
+
+    const image = await Jimp.read(tmpPath);
+
+    await image.resize(250, 250).writeAsync(tmpPath);
+
+    await fs.rename(tmpPath, newPath);
+
+    const avatarURL = `/avatars/${filename}`;
+    await User.findByIdAndUpdate(req.user._id, { avatarURL });
+
+    res.json({ avatarURL });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
   logout,
   getCurrentUser,
+  updateAvatar,
 };

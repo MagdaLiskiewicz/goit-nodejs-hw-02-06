@@ -12,6 +12,7 @@ app.use(express.json());
 app.use(cors());
 
 app.use("/users", authRouter);
+app.use("/avatars", express.static("public/avatars"));
 
 const contactsRouter = require("./routes/api/contacts");
 app.use("/api/contacts", contactsRouter);
@@ -24,6 +25,7 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  console.error("Error:", err);
   res.status(500).json({ message: err.message, data: "Internal Server Error" });
 });
 
