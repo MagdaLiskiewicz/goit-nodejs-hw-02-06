@@ -93,6 +93,13 @@ const login = async (req, res, next) => {
         data: "Bad request",
       });
     }
+    if (!user.verify) {
+      return res.status(403).json({
+        status: "error",
+        code: 403,
+        message: "Please verify your email",
+      });
+    }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
