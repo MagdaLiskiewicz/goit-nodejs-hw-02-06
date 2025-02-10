@@ -7,6 +7,8 @@ const fs = require("fs/promises");
 const path = require("path");
 const Jimp = require("jimp");
 const avatarsDir = path.join(__dirname, "../public/avatars");
+const { v4: uuidv4 } = require("uuid");
+const sendEmail = require("../email/email");
 
 const registerSchema = Joi.object({
   email: Joi.string().email().required(),
@@ -43,17 +45,28 @@ const register = async (req, res, next) => {
 
     const avatarURL = gravatar.url(email, { s: "250", d: "identicon" }, true);
 
+    const verificationToken = uuidv4();
     const newUser = await User.create({
       email,
       password: hashedPassword,
       avatarURL,
+      verificationToken,
     });
+
+    const verificationLink = `${process.env.BASE_URL}/users/verify/${verificationToken}`;
+
+    await sendEmail(
+      email,
+      "Verify your email",
+      `<p>Click <a href="${verificationLink}">here</a> to verify your email.</p>`
+    );
 
     res.status(201).json({
       user: {
         email: newUser.email,
         subscription: newUser.subscription,
         avatarURL,
+        message: "User registered. Check your email for verification link.",
       },
     });
   } catch (error) {
@@ -78,6 +91,13 @@ const login = async (req, res, next) => {
         code: 401,
         message: `User ${email} doesn't exist`,
         data: "Bad request",
+      });
+    }
+    if (!user.verify) {
+      return res.status(403).json({
+        status: "error",
+        code: 403,
+        message: "Please verify your email",
       });
     }
 
